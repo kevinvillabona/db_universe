@@ -2,7 +2,8 @@ import * as THREE from 'three';
 
 export function setupInteraction(camera, scene, universeMeshes, onSelectCallback) {
     const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
+    // Inicializamos el "mouse" fuera de la pantalla para evitar hovers fantasmas al cargar
+    const mouse = new THREE.Vector2(-2, -2); 
     
     // --- CONFIGURACIÓN DE FÍSICA ---
     const SENSITIVITY = 0.002;
@@ -15,24 +16,35 @@ export function setupInteraction(camera, scene, universeMeshes, onSelectCallback
     let velocity = 0; 
     let isHovering = false;
     let targetMesh = null;
-    let isPaused = false; // Nuevo: Para detener interacción durante Focus
+    let isPaused = false; 
 
-    function onMouseDown(e) {
-        if (isPaused) return; // Ignorar si está pausado
+    function onPointerDown(e) {
+        if (isPaused) return; 
+        if (!e.isPrimary) return; // Ignoramos toques secundarios (multi-touch)
+        
         isDragging = true;
         previousMouseX = e.clientX;
         document.body.style.cursor = 'grabbing';
         velocity = 0;
     }
 
-    function onMouseUp() {
+    function onPointerUp(e) {
+        if (!e.isPrimary) return;
+        
         isDragging = false;
         if (!isPaused) {
             document.body.style.cursor = isHovering ? 'pointer' : 'default';
         }
+        
+        // FIX UI/UX MOBILE: Si es táctil, sacamos el raycaster de la pantalla al levantar el dedo
+        if (e.pointerType === 'touch') {
+            mouse.set(-2, -2);
+        }
     }
 
-    function onMouseMove(e) {
+    function onPointerMove(e) {
+        if (!e.isPrimary) return;
+        
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
@@ -54,19 +66,16 @@ export function setupInteraction(camera, scene, universeMeshes, onSelectCallback
         // Si la velocidad es alta, es un drag, no un click
         if (Math.abs(velocity) > 0.005) return;
 
-        if (targetMesh) {
-            // Llamamos al callback pasado desde main.js
-            if (onSelectCallback) {
-                onSelectCallback(targetMesh);
-            }
+        if (targetMesh && onSelectCallback) {
+            onSelectCallback(targetMesh);
         }
     }
 
-    // Usamos Pointer Events para soportar táctil y mouse simultáneamente
-    window.addEventListener('pointerdown', onMouseDown);
-    window.addEventListener('pointerup', onMouseUp);
-    window.addEventListener('pointermove', onMouseMove);
-    window.addEventListener('pointercancel', onMouseUp); // Fundamental para móviles si el touch se interrumpe
+    // --- POINTER EVENTS (Soporte Universal Mouse + Táctil) ---
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointercancel', onPointerUp); // FIX CRÍTICO: Libera el drag si el SO interrumpe
     window.addEventListener('click', onClick);
 
     function update() {
@@ -112,7 +121,6 @@ export function setupInteraction(camera, scene, universeMeshes, onSelectCallback
         };
     }
 
-    // Nuevo método para pausar desde fuera
     function setPaused(value) {
         isPaused = value;
         if(isPaused) {

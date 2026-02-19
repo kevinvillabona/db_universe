@@ -4,16 +4,17 @@
     --u2: #ff85a2; --u3: #00ff88; --u9: #555;
 }
 
-/* Blindamos el html y body para que jamás calculen scrollbars */
 html, body { 
     width: 100%; height: 100%; 
     margin: 0; padding: 0; 
     overflow: hidden; 
     background-color: #000; 
     font-family: 'Teko', sans-serif; 
+    /* FIX CRÍTICO MOBILE: Previene pull-to-refresh y scroll fantasma */
+    touch-action: none; 
+    overscroll-behavior: none;
 }
 
-/* Usamos anclajes absolutos en lugar de vw/vh */
 #canvas-container { 
     position: absolute; 
     top: 0; left: 0; right: 0; bottom: 0; 
@@ -48,29 +49,25 @@ html, body {
     position: absolute; bottom: 40px; left: 40px; transform: none;
     padding: 12px 35px; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 153, 0, 0.5); 
-    border-radius: 30px; /* Bordes tipo pastilla, más elegantes */
+    border-radius: 30px; 
     color: var(--orange); font-family: 'Russo One', sans-serif; letter-spacing: 2px;
     cursor: pointer; font-size: 1rem; transition: all 0.3s ease; z-index: 60;
 }
 #back-btn:hover { background: var(--orange); color: #000; box-shadow: 0 0 20px var(--orange); }
+
 /* =========================================
-   PANEL DE ROSTER (SOLUCIÓN DEFINITIVA)
+   PANEL DE ROSTER
    ========================================= */
 #roster-panel {
-    /* FIXED saca al panel del flujo del documento, erradicando el bug del scrollbar fantasma */
     position: fixed; 
     right: 0; top: 0;
     width: 60vw;
     height: 100%; 
-    
     background: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(5,7,12,0.4) 20%, rgba(5,7,12,0.6) 100%);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    
     border: none; box-shadow: none; z-index: 40; 
     overflow-y: auto; overflow-x: hidden;
     padding: 60px 50px;
-
-    /* Al usar fixed, podemos empujarlo 100% afuera sin romper el layout base */
     transform: translate3d(100%, 0, 0); 
     transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.6s ease, visibility 0.6s;
     opacity: 0;
@@ -113,7 +110,7 @@ html, body {
 .char-card:hover .char-img { transform: scale(1.15) translateY(-5px); filter: drop-shadow(0 0 15px var(--u-color)); }
 
 .info-panel { padding: 15px; background: rgba(0,0,0,0.7); border-top: 1px solid var(--u-color); }
-.u-tag { position: absolute; top: 10px; right: 10px; font-size: 0.8rem; background: var(--u-color); color: #000; font-weight: bold; padding: 4px 10px; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%, 0% 10%); }
+.u-tag { position: absolute; top: 10px; right: 10px; font-size: 0.8rem; background: var(--u-color); color: #000; font-weight: bold; padding: 4px 10px; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%, 0% 10%); z-index: 10; }
 .char-name { font-family: 'Russo One', sans-serif; font-size: 1.3rem; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
 .char-race { color: #66fcf1; font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8; }
 
@@ -124,18 +121,14 @@ html, body {
 .u-theme-default { --u-color: #888; --u-color-dark: rgba(100, 100, 100, 0.4); }
 
 .hidden { opacity: 0 !important; pointer-events: none; }
-.title-active { opacity: 1 !important; transform: translateY(0); }
 
-/* --- RESPONSIVE MOBILE --- */
+/* --- OPTIMIZACIONES DE UI/UX PARA MÓVILES --- */
 @media (max-width: 768px) {
-    /* 1. Achicamos el logo para liberar la cabecera */
     .logo-top-left { top: 15px; left: 15px; width: 90px; }
 
-    /* 2. El título se centra perfectamente en el hueco superior */
     #left-zone { width: 100vw; height: 35vh; justify-content: center; pt: 0; padding-top: 8vh; }
     #floating-title { font-size: 2.5rem; text-align: center; }
 
-    /* 3. El panel se vuelve un "Bottom Sheet" (como Google Maps o Spotify) */
     #roster-panel {
         position: fixed;
         width: 100vw; 
@@ -144,27 +137,24 @@ html, body {
         bottom: 0;
         background: linear-gradient(180deg, rgba(10,12,16,0.95) 0%, rgba(0,0,0,1) 100%);
         border-top: 2px solid var(--orange);
-        border-radius: 25px 25px 0 0; /* Bordes redondeados superiores */
+        border-radius: 25px 25px 0 0; 
         box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
         transform: translate3d(0, 100%, 0); 
-        padding: 30px 15px 100px 15px; /* Mucho padding abajo para que no lo tape el botón */
+        padding: 30px 15px 90px 15px; /* Espacio extra abajo para el botón Volver */
     }
-    .roster-active { transform: translate3d(0, 0, 0) !important; }
 
-    /* 4. Optimizamos las cards para que entren en 2 columnas en el teléfono */
-    .roster-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding-bottom: 20px; }
-    .img-container { height: 150px; } /* Imágenes más adaptadas */
-    .char-name { font-size: 1.1rem; }
-    .info-panel { padding: 10px; }
+    .roster-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 20px; }
+    .img-container { height: 160px; } 
+    .char-name { font-size: 1rem; }
+    .info-panel { padding: 8px; }
     .u-tag { padding: 2px 6px; font-size: 0.7rem; }
 
-    /* 5. El botón de volver pasa a ser un FAB pegado abajo, ancho completo */
     #back-btn { 
-        bottom: 25px; 
+        bottom: 20px; 
         top: auto; 
         left: 50%; 
         transform: translateX(-50%); 
-        width: 85%; 
+        width: 90%; 
         text-align: center; 
         background: var(--orange); 
         color: #000; 
@@ -173,4 +163,11 @@ html, body {
         border: none;
     }
     #back-btn:hover { transform: translateX(-50%) scale(1.02); }
+}
+
+/* Ocultar el tooltip de hover en dispositivos con pantalla táctil */
+@media (pointer: coarse) {
+    #hover-tooltip {
+        display: none !important;
+    }
 }
