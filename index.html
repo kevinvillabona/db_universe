@@ -4,13 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zeno Sama - Selector Multiverso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="bg-black overflow-hidden m-0">
 
-    <div id="loading">Generando Cristales Divinos...</div>
+    <div id="logo-container" class="logo-center">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/2/22/Dragon_Ball_Super.png" alt="Logo Multiverso" id="db-logo">
+    </div>
+
+    <div id="loading">
+        <div class="spinner"></div>
+    </div>
     
     <button id="back-btn" class="hidden">VOLVER AL MULTIVERSO</button>
+
+    <div id="hover-tooltip" class="opacity-0 pointer-events-none absolute text-white font-bold text-2xl uppercase tracking-widest transition-opacity duration-300 z-40 tooltip-glow">
+    </div>
 
     <div id="canvas-container"></div>
 

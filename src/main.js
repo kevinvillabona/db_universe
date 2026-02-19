@@ -11,13 +11,24 @@ async function init() {
     setupLighting(scene);
 
     const background = createBackground(scene);
+    // Esperamos a que los cristales/texturas terminen de cargar
     const { universeMeshes, radiusX, radiusY } = await createMultiverse(scene);
 
     const loadingEl = document.getElementById('loading');
+    const logoContainer = document.getElementById('logo-container');
     const backBtn = document.getElementById('back-btn');
+    const tooltipEl = document.getElementById('hover-tooltip');
     
-    loadingEl.classList.add('fade-out');
-    setTimeout(() => loadingEl.style.display = 'none', 500);
+    // Dejamos que el logo se luzca en el centro por un segundo antes de moverlo
+    setTimeout(() => {
+        // Desvanecer spinner de carga
+        loadingEl.classList.add('fade-out');
+        setTimeout(() => loadingEl.style.display = 'none', 500);
+
+        // Mover logo hacia la esquina
+        logoContainer.classList.remove('logo-center');
+        logoContainer.classList.add('logo-top-left');
+    }, 800);
 
     // --- VARIABLES DE ESTADO ---
     let isFocused = false;          
@@ -90,11 +101,34 @@ async function init() {
 
         const { rotationDelta, hoveredGroup } = interaction.update();
 
-        // 2. Transición Focus
+        // 2. Lógica del Tooltip Hover
+        if (hoveredGroup && !isFocused && focusProgress < 0.1 && snakeProgress >= 1.0) {
+            // Actualizar texto según el ID del Universo (ej: Universo 7)
+            tooltipEl.textContent = `Universo ${hoveredGroup.userData.id}`;
+            tooltipEl.classList.remove('opacity-0');
+            
+            // Proyección 3D a 2D para que el tooltip siga al modelo
+            const vector = new THREE.Vector3();
+            hoveredGroup.getWorldPosition(vector);
+            vector.y += 1.8; // Desplazar un poco hacia arriba del universo
+            vector.project(camera);
+            
+            // Convertir coordenadas proyectadas (-1 a +1) a píxeles de pantalla
+            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
+            
+            tooltipEl.style.left = `${x}px`;
+            tooltipEl.style.top = `${y}px`;
+        } else {
+            // Ocultar suavemente cuando no hay hover
+            tooltipEl.classList.add('opacity-0');
+        }
+
+        // 3. Transición Focus
         const targetProgress = isFocused ? 1.0 : 0.0;
         focusProgress = THREE.MathUtils.lerp(focusProgress, targetProgress, 0.04);
 
-        // 3. Transición Rotación Anillo
+        // 4. Transición Rotación Anillo
         currentRotationOffset = THREE.MathUtils.lerp(currentRotationOffset, targetRotationOffset, 0.04);
         
         if (!isFocused && Math.abs(currentRotationOffset - targetRotationOffset) < 0.001) {
@@ -115,10 +149,8 @@ async function init() {
             const orbitX = radiusX * Math.cos(finalAngle);
             const orbitY = radiusY * Math.sin(finalAngle);
             
-            // --- CAMBIO AQUÍ ---
             const centerX = 0;
             const centerY = 0;
-            // Redujimos centerZ de 8 a 4 para compensar que la cámara está más cerca (en 21.5)
             const centerZ = 4; 
 
             const isTarget = (index === focusedIndex);
