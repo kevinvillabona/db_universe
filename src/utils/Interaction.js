@@ -2,15 +2,13 @@ import * as THREE from 'three';
 
 export function setupInteraction(camera, scene, universeMeshes, onSelectCallback) {
     const raycaster = new THREE.Raycaster();
-    // Inicializamos el "mouse" fuera de la pantalla para evitar hovers fantasmas al cargar
     const mouse = new THREE.Vector2(-2, -2); 
+    const pointerDownPos = new THREE.Vector2(); // Nuevo: Guardamos dónde toca inicialmente
     
-    // --- CONFIGURACIÓN DE FÍSICA ---
     const SENSITIVITY = 0.002;
     const FRICTION = 0.95;
     const MAX_VELOCITY = 0.05;
 
-    // Variables de Estado
     let isDragging = false;
     let previousMouseX = 0;
     let velocity = 0; 
@@ -18,25 +16,61 @@ export function setupInteraction(camera, scene, universeMeshes, onSelectCallback
     let targetMesh = null;
     let isPaused = false; 
 
+    // Función auxiliar para actualizar coordenadas
+    function updateMousePos(clientX, clientY) {
+        mouse.x = (clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+    }
+
     function onPointerDown(e) {
-        if (isPaused) return; 
-        if (!e.isPrimary) return; // Ignoramos toques secundarios (multi-touch)
+        if (isPaused || !e.isPrimary) return; 
         
         isDragging = true;
         previousMouseX = e.clientX;
+        pointerDownPos.set(e.clientX, e.clientY); 
+        
+        updateMousePos(e.clientX, e.clientY); // CRUCIAL para móviles: actualiza al tocar
+        
         document.body.style.cursor = 'grabbing';
         velocity = 0;
     }
 
     function onPointerUp(e) {
         if (!e.isPrimary) return;
-        
         isDragging = false;
+        
+        // --- LÓGICA DE TAP (Reemplaza el evento 'click' nativo) ---
+        // Calculamos cuánto se movió el dedo desde que tocó hasta que soltó
+        const moveDistance = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+        
+        // Si se movió menos de 10 píxeles, es un tap intencional
+        if (moveDistance < 10 && !isPaused) {
+            updateMousePos(e.clientX, e.clientY);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            
+            let clickedMesh = null;
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while(obj.parent && obj.parent.type === 'Group' && obj.parent !== scene) {
+                    if(obj.userData.id) {
+                        clickedMesh = obj;
+                        break;
+                    }
+                    obj = obj.parent;
+                }
+            }
+
+            if (clickedMesh && onSelectCallback) {
+                onSelectCallback(clickedMesh);
+            }
+        }
+        
         if (!isPaused) {
             document.body.style.cursor = isHovering ? 'pointer' : 'default';
         }
         
-        // FIX UI/UX MOBILE: Si es táctil, sacamos el raycaster de la pantalla al levantar el dedo
+        // Limpiamos el raycaster si es pantalla táctil para que no quede "hover" trabado
         if (e.pointerType === 'touch') {
             mouse.set(-2, -2);
         }
@@ -45,14 +79,12 @@ export function setupInteraction(camera, scene, universeMeshes, onSelectCallback
     function onPointerMove(e) {
         if (!e.isPrimary) return;
         
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        updateMousePos(e.clientX, e.clientY);
 
         if (isDragging && !isPaused) {
             const deltaX = e.clientX - previousMouseX;
-            let newVel = deltaX * SENSITIVITY;
-            velocity = newVel; 
-
+            velocity = deltaX * SENSITIVITY; 
+            
             if (velocity > MAX_VELOCITY) velocity = MAX_VELOCITY;
             if (velocity < -MAX_VELOCITY) velocity = -MAX_VELOCITY;
 
@@ -60,32 +92,20 @@ export function setupInteraction(camera, scene, universeMeshes, onSelectCallback
         }
     }
 
-    function onClick() {
-        if (isPaused) return; 
-
-        // Si la velocidad es alta, es un drag, no un click
-        if (Math.abs(velocity) > 0.005) return;
-
-        if (targetMesh && onSelectCallback) {
-            onSelectCallback(targetMesh);
-        }
-    }
-
-    // --- POINTER EVENTS (Soporte Universal Mouse + Táctil) ---
-    window.addEventListener('pointerdown', onPointerDown);
+    // Usamos { passive: false } para mayor control sobre el touch
+    window.addEventListener('pointerdown', onPointerDown, { passive: false });
     window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointercancel', onPointerUp); // FIX CRÍTICO: Libera el drag si el SO interrumpe
-    window.addEventListener('click', onClick);
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointercancel', onPointerUp); 
+    // NOTA: Eliminamos el window.addEventListener('click', onClick) por completo.
 
     function update() {
-        // 1. Fricción
         if (!isDragging) {
             velocity *= FRICTION;
             if (Math.abs(velocity) < 0.0001) velocity = 0;
         }
 
-        // 2. Raycaster (Solo si no está pausado y velocidad baja)
+        // Raycaster visual para el hover en escritorio
         if (!isPaused && Math.abs(velocity) < 0.05) {
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(scene.children, true);
@@ -124,7 +144,7 @@ export function setupInteraction(camera, scene, universeMeshes, onSelectCallback
     function setPaused(value) {
         isPaused = value;
         if(isPaused) {
-            velocity = 0; // Frenar en seco al pausar
+            velocity = 0; 
             isDragging = false;
         }
     }

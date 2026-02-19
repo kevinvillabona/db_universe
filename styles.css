@@ -7,12 +7,16 @@
 html, body { 
     width: 100%; height: 100%; 
     margin: 0; padding: 0; 
-    overflow: hidden; 
+    overflow: hidden !important; /* El !important mata cualquier scroll fantasma */
     background-color: #000; 
     font-family: 'Teko', sans-serif; 
-    /* FIX CRÍTICO MOBILE: Previene pull-to-refresh y scroll fantasma */
+    
+    /* BLOQUEO TOTAL DE GESTOS MÓVILES */
+    position: fixed; /* Bloquea el rebote (rubber-banding) y fija el documento */
     touch-action: none; 
     overscroll-behavior: none;
+    -webkit-user-select: none; /* Evita que se seleccione texto al mantener apretado */
+    user-select: none;
 }
 
 #canvas-container { 
