@@ -62,11 +62,12 @@ export function setupInteraction(camera, scene, universeMeshes, onSelectCallback
         }
     }
 
-    window.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('mousemove', onMouseMove);
+    // Usamos Pointer Events para soportar táctil y mouse simultáneamente
+    window.addEventListener('pointerdown', onMouseDown);
+    window.addEventListener('pointerup', onMouseUp);
+    window.addEventListener('pointermove', onMouseMove);
+    window.addEventListener('pointercancel', onMouseUp); // Fundamental para móviles si el touch se interrumpe
     window.addEventListener('click', onClick);
-    window.addEventListener('mouseleave', onMouseUp); 
 
     function update() {
         // 1. Fricción
