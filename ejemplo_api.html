@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DB Multiverse - Ultra Roster</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Teko:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --orange: #ff9900;
+            --u7: #00d2ff; --u6: #9d50bb; --u11: #ff0844;
+            --u2: #ff85a2; --u3: #00ff88; --u9: #555;
+            --dark-bg: #050505; --card-bg: #121417;
+        }
+
+        body {
+            font-family: 'Teko', sans-serif;
+            background-color: var(--dark-bg);
+            background-image: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+            color: white; margin: 0; padding: 0;
+        }
+
+        header {
+            text-align: center; padding: 40px 20px;
+            border-bottom: 2px solid var(--orange);
+            background: linear-gradient(180deg, rgba(255,153,0,0.1) 0%, transparent 100%);
+        }
+
+        h1 {
+            font-family: 'Russo One', sans-serif;
+            font-size: clamp(2rem, 8vw, 4rem);
+            margin: 0; text-transform: uppercase;
+            color: #fff; text-shadow: 0 0 20px var(--orange);
+            transform: skewX(-15deg);
+        }
+
+        /* CONTROLES */
+        .controls {
+            display: flex; justify-content: center; gap: 10px;
+            margin: 30px auto; flex-wrap: wrap; max-width: 1200px;
+        }
+
+        .filter-btn {
+            background: #111; border: 1px solid #333; color: #888;
+            padding: 8px 18px; font-family: 'Russo One', sans-serif;
+            text-transform: uppercase; cursor: pointer;
+            transform: skewX(-10deg); transition: 0.3s; font-size: 0.9rem;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            color: #fff; border-color: var(--c, var(--orange));
+            box-shadow: 0 0 15px var(--c, var(--orange));
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* GRID */
+        .roster-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 30px; max-width: 1400px; margin: 0 auto; padding: 20px;
+        }
+
+        /* CARDS */
+        .char-card {
+            background: var(--card-bg); position: relative;
+            transition: 0.4s; border: 1px solid #222;
+            clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%);
+        }
+
+        .char-card:hover {
+            transform: translateY(-8px); border-color: var(--u-color);
+            box-shadow: 0 0 25px var(--u-color); z-index: 5;
+        }
+
+        .img-container {
+            height: 300px; display: flex; align-items: flex-end; justify-content: center;
+            background: radial-gradient(circle at 50% 100%, var(--u-color-dark, #222), #000 80%);
+            overflow: hidden; position: relative;
+        }
+
+        .char-img {
+            max-width: 90%; max-height: 90%; z-index: 2; transition: 0.4s;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+        }
+
+        .char-card:hover .char-img { transform: scale(1.1); filter: drop-shadow(0 0 15px var(--u-color)); }
+
+        .info-panel { padding: 15px; background: rgba(0,0,0,0.8); border-top: 2px solid var(--u-color); }
+
+        .u-tag {
+            position: absolute; top: 10px; right: 10px; font-size: 0.8rem;
+            background: var(--u-color); color: #000; font-weight: bold; padding: 2px 10px;
+        }
+
+        .char-name { font-family: 'Russo One', sans-serif; font-size: 1.6rem; margin: 0; text-transform: uppercase; }
+        .char-race { color: #66fcf1; font-size: 1rem; letter-spacing: 1px; }
+
+        #loader { text-align: center; color: var(--orange); font-size: 2rem; padding: 100px; }
+        
+        /* Temas por Universo */
+        .u-theme-7 { --u-color: var(--u7); --u-color-dark: rgba(0, 210, 255, 0.2); }
+        .u-theme-6 { --u-color: var(--u6); --u-color-dark: rgba(157, 80, 187, 0.2); }
+        .u-theme-11 { --u-color: var(--u11); --u-color-dark: rgba(255, 8, 68, 0.2); }
+        .u-theme-2 { --u-color: var(--u2); --u-color-dark: rgba(255, 133, 162, 0.2); }
+        .u-theme-god { --u-color: gold; --u-color-dark: rgba(255, 215, 0, 0.2); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Multiverse <span>Elite</span></h1>
+</header>
+
+<div class="controls">
+    <button class="filter-btn active" onclick="render('all')" style="--c: var(--orange)">Todos</button>
+    <button class="filter-btn" onclick="render('universo_7')" style="--c: var(--u7)">U7</button>
+    <button class="filter-btn" onclick="render('universo_6')" style="--c: var(--u6)">U6</button>
+    <button class="filter-btn" onclick="render('universo_11')" style="--c: var(--u11)">U11</button>
+    <button class="filter-btn" onclick="render('gods')" style="--c: gold">Deidades</button>
+</div>
+
+<div id="loader">Cargando base de datos multidimensional...</div>
+<div class="roster-grid" id="grid"></div>
+
+<script>
+    // MAPEADO MAESTRO - Organizado por universo para la API
+    const UNIVERSES_MAP = {
+        universo_7: ["Goku", "Vegeta", "Piccolo", "Gohan", "Freezer", "Android 17", "Android 18", "Krillin", "Master Roshi", "Tien Shinhan", "Yamcha", "Majin Buu", "Broly", "Pan", "Trunks", "Bulma"],
+        universo_6: ["Hit", "Cabba", "Caulifla", "Kale", "Frost", "Magetta", "Botamo", "Saonel", "Pirina"],
+        universo_11: ["Jiren", "Toppo", "Dyspo", "Kahseral", "Cocotte"],
+        universo_2: ["Ribrianne", "Kakunsa", "Rozie"],
+        // Estos se agruparán en el filtro "Gods"
+        gods: ["Beerus", "Whis", "Champa", "Vados", "Belmod", "Marcarita", "Zeno", "Grand Priest", "Shin", "Zamasu", "Goku Black"]
+    };
+
+    let apiData = [];
+
+    async function fetchData() {
+        try {
+            // Hacemos un barrido grande de la API para encontrar a todos
+            const response = await fetch('https://dragonball-api.com/api/characters?limit=150');
+            const data = await response.json();
+            const allItems = data.items;
+
+            const namesToFind = Object.values(UNIVERSES_MAP).flat();
+
+            // Sincronizar
+            apiData = allItems.filter(pj => namesToFind.includes(pj.name));
+
+            // Inyectar Metadatos de Universo
+            apiData.forEach(pj => {
+                for (const [uKey, list] of Object.entries(UNIVERSES_MAP)) {
+                    if (list.includes(pj.name)) {
+                        pj.uKey = uKey;
+                        pj.uDisplay = uKey === 'gods' ? 'DIVINE' : uKey.replace('_', ' ').toUpperCase();
+                    }
+                }
+            });
+
+            document.getElementById('loader').style.display = 'none';
+            render('all');
+
+        } catch (e) {
+            document.getElementById('loader').innerText = "Error de comunicación con el Planeta de Zeno-Sama.";
+        }
+    }
+
+    function render(filter) {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+
+        // UI de botones
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        if(event && event.currentTarget) event.currentTarget.classList.add('active');
+
+        const filtered = filter === 'all' ? apiData : apiData.filter(p => p.uKey === filter);
+
+        filtered.forEach(pj => {
+            // Lógica de temas visuales
+            let theme = 'u-theme-7';
+            if(pj.uKey === 'universo_6') theme = 'u-theme-6';
+            if(pj.uKey === 'universo_11') theme = 'u-theme-11';
+            if(pj.uKey === 'universo_2') theme = 'u-theme-2';
+            if(pj.uKey === 'gods') theme = 'u-theme-god';
+
+            const card = document.createElement('div');
+            card.className = `char-card ${theme}`;
+            card.innerHTML = `
+                <div class="img-container">
+                    <img src="${pj.image}" class="char-img" alt="${pj.name}">
+                </div>
+                <div class="info-panel">
+                    <div class="u-tag">${pj.uDisplay}</div>
+                    <span class="char-race">${pj.race}</span>
+                    <h2 class="char-name">${pj.name}</h2>
+                    <div style="margin-top:8px; font-size:0.9rem; color:var(--u-color)">
+                        BASE KI: ${pj.ki}
+                    </div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    fetchData();
+</script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zeno Sama - Selector Multiverso</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: rgba(255,255,255,0.7); font-family: sans-serif; letter-spacing: 2px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading">Generando Cristales Divinos...</div>
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- 1. Escena y Cámara Fija ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x020202);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 30);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // --- 2. Iluminación ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+        scene.add(ambientLight);
+
+        const topLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        topLight.position.set(0, 20, 10);
+        scene.add(topLight);
+
+        const backLight = new THREE.PointLight(0xffffff, 1.0);
+        backLight.position.set(0, -10, -10);
+        scene.add(backLight);
+
+        // --- 3. Post-Processing (Bloom suave) ---
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.strength = 0.4;
+        bloomPass.radius = 0.5;
+        bloomPass.threshold = 0.6;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- 4. Variables Globales ---
+        const universeGroups = [];
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        const colors = [
+            0x00FFFF, 0x00FFFF,
+            0xCC00FF, 0xCC00FF,
+            0x00FF00, 0x00FF00,
+            0x0055FF, 0x0055FF,
+            0xFF0055, 0xFF0055,
+            0xFFD700, 0xFFD700
+        ];
+
+        const textureLoader = new THREE.TextureLoader();
+
+        textureLoader.load('./galaxy.png', (texture) => {
+            document.getElementById('loading').style.display = 'none';
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.center.set(0.5, 0.5);
+
+            const radiusX = 10;
+            const radiusY = 7.5;
+
+            // Geometría plana para evitar deformación
+            const innerGeo = new THREE.CircleGeometry(1.5, 32); 
+            // Esfera exterior para el cristal
+            const outerGeo = new THREE.SphereGeometry(1.7, 64, 64);
+            // NUEVO: Esfera para el borde (ligeramente más grande)
+            const rimGeo = new THREE.SphereGeometry(1.8, 64, 64);
+
+            const startAngle = Math.PI / 2 + (Math.PI / 12); 
+
+            for (let i = 0; i < 12; i++) {
+                const group = new THREE.Group();
+                const color = new THREE.Color(colors[i]);
+
+                // --- A. INTERIOR (Galaxia) ---
+                const innerMat = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    color: 0xffffff, 
+                    side: THREE.DoubleSide
+                });
+                innerMat.color.lerp(color, 0.2); 
+
+                const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+                group.add(innerMesh); // Índice 0
+
+                // --- B. EXTERIOR (Cristal) ---
+                const outerMat = new THREE.MeshPhysicalMaterial({
+                    color: color,
+                    emissive: color,
+                    emissiveIntensity: 0.2,
+                    transmission: 1.0,
+                    thickness: 2.0,
+                    roughness: 0.0,
+                    metalness: 0.1,
+                    transparent: true,
+                    opacity: 0.5,
+                    clearcoat: 1.0,
+                    side: THREE.FrontSide
+                });
+
+                const outerSphere = new THREE.Mesh(outerGeo, outerMat);
+                group.add(outerSphere); // Índice 1
+
+                // --- C. REBORDE / SOMBRA (Nuevo) ---
+                // Usamos BackSide para crear un contorno (outline)
+                const rimMat = new THREE.MeshBasicMaterial({
+                    color: color,
+                    side: THREE.BackSide, // Renderiza el interior de la esfera trasera
+                    transparent: true,
+                    opacity: 0.05, // Muy sutil
+                    blending: THREE.AdditiveBlending, // Mezcla aditiva para que parezca luz/sombra brillante
+                    depthWrite: false // Evita conflictos visuales con el cristal
+                });
+
+                const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+                group.add(rimMesh); // Índice 2
+
+                // --- POSICIONAMIENTO ---
+                const angle = startAngle - (i / 12) * Math.PI * 2;
+                
+                group.position.x = radiusX * Math.cos(angle);
+                group.position.y = radiusY * Math.sin(angle);
+                
+                const yNorm = group.position.y / radiusY; 
+                const scaleFactor = 1.0 - (yNorm * 0.25); 
+                
+                group.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+                group.userData = { 
+                    id: i + 1, 
+                    baseScale: scaleFactor 
+                };
+
+                if (i === 7) group.userData.isU7 = true;
+
+                scene.add(group);
+                universeGroups.push(group);
+            }
+        });
+
+        window.addEventListener('resize', onResize);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('click', onClick);
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onMouseMove(e) {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onClick() {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            
+            if (intersects.length > 0) {
+                let target = intersects[0].object;
+                while(target.parent && target.parent.type === 'Group') {
+                    target = target.parent;
+                }
+                
+                if (target.userData.id) {
+                    alert(`Has seleccionado el Universo ${target.userData.id}`);
+                }
+            }
+        }
+
+        // --- ANIMACIÓN AJUSTADA ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = Date.now() * 0.0001; 
+
+            universeGroups.forEach(group => {
+                // Verificar que la textura haya cargado y existan los hijos
+                if (group.children.length < 3) return;
+
+                const inner = group.children[0];
+                const outer = group.children[1];
+                // El rim (borde) es el hijo [2], no necesita rotación especial porque es una esfera uniforme,
+                // pero si quisieras podrías rotarlo también.
+
+                // 1. Efecto Cover: Mirar siempre a la cámara
+                inner.quaternion.copy(camera.quaternion);
+
+                // 2. Rotación Galaxia: Muy lenta
+                inner.rotateZ(time + (group.userData.id * 0.5));
+                
+                // 3. Rotación Cristal
+                outer.rotation.x += 0.0005; 
+                outer.rotation.y += 0.0005; 
+            });
+
+            // Hover Logic
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            universeGroups.forEach(group => {
+                const base = group.userData.baseScale;
+                // Lerp de escala
+                group.scale.lerp(new THREE.Vector3(base, base, base), 0.05);
+                
+                // Lerp de brillo del cristal (Index 1)
+                if(group.children[1]) {
+                    const outer = group.children[1];
+                    outer.material.emissiveIntensity = THREE.MathUtils.lerp(outer.material.emissiveIntensity, 0.2, 0.05);
+                }
+
+                // Lerp de opacidad del borde/sombra (Index 2)
+                if(group.children[2]) {
+                    const rim = group.children[2];
+                    // Volvemos a la opacidad sutil (0.15) cuando no hay hover
+                    rim.material.opacity = THREE.MathUtils.lerp(rim.material.opacity, 0.05, 0.1);
+                }
+            });
+
+            if (intersects.length > 0) {
+                let target = intersects[0].object;
+                while(target.parent && target.parent.type === 'Group') {
+                    target = target.parent;
+                }
+
+                if (target.userData.id) {
+                    const base = target.userData.baseScale;
+                    const hoverScale = base * 1.15;
+                    target.scale.lerp(new THREE.Vector3(hoverScale, hoverScale, hoverScale), 0.05);
+                    
+                    // Aumentar brillo del cristal
+                    if (target.children[1]) {
+                        target.children[1].material.emissiveIntensity = 0.8; 
+                    }
+
+                    // Aumentar opacidad del borde (sombra)
+                    if (target.children[2]) {
+                        // Al hacer hover, hacemos el borde más visible
+                        target.children[2].material.opacity = THREE.MathUtils.lerp(target.children[2].material.opacity, 0.5, 0.1);
+                    }
+
+                    document.body.style.cursor = 'pointer';
+                }
+            } else {
+                document.body.style.cursor = 'default';
+            }
+
+            composer.render();
+        }
+
+        animate();
+    </script>
+</body>
+</html>
