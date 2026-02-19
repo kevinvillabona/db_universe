@@ -1,99 +1,140 @@
-body { margin: 0; overflow: hidden; background-color: #000; }
-#canvas-container { width: 100vw; height: 100vh; }
-
-/* --- Animaciones del Logo --- */
-#logo-container {
-    position: absolute;
-    z-index: 50;
-    /* Transición suave para el movimiento y cambio de tamaño */
-    transition: all 1.2s cubic-bezier(0.25, 1, 0.5, 1);
-    pointer-events: none;
+:root {
+    --orange: #ff9900;
+    --u7: #00d2ff; --u6: #9d50bb; --u11: #ff0844;
+    --u2: #ff85a2; --u3: #00ff88; --u9: #555;
 }
 
-.logo-center {
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 350px;
+/* Blindamos el html y body para que jamás calculen scrollbars */
+html, body { 
+    width: 100%; height: 100%; 
+    margin: 0; padding: 0; 
+    overflow: hidden; 
+    background-color: #000; 
+    font-family: 'Teko', sans-serif; 
 }
 
-.logo-top-left {
-    top: 20px;
-    left: 20px;
-    transform: translate(0, 0);
-    width: 150px;
-}
-
-#db-logo {
-    width: 100%;
-    height: auto;
-    filter: drop-shadow(0px 0px 15px rgba(255, 255, 255, 0.3));
-}
-
-/* --- Animaciones del Loader --- */
-#loading {
+/* Usamos anclajes absolutos en lugar de vw/vh */
+#canvas-container { 
     position: absolute; 
-    /* Colocado justo debajo del logo centrado */
-    top: calc(50% + 120px); 
-    left: 50%; 
-    transform: translate(-50%, -50%);
-    z-index: 10;
-    transition: opacity 0.5s ease;
+    top: 0; left: 0; right: 0; bottom: 0; 
+    z-index: 1; 
+    overflow: hidden; 
 }
 
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+#canvas-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    outline: none;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+/* --- Logo y Loader --- */
+#logo-container { position: absolute; z-index: 50; transition: all 1.2s cubic-bezier(0.25, 1, 0.5, 1); pointer-events: none; }
+.logo-center { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 350px; }
+.logo-top-left { top: 20px; left: 20px; transform: translate(0, 0); width: 150px; }
+#db-logo { width: 100%; height: auto; filter: drop-shadow(0px 0px 15px rgba(255, 255, 255, 0.3)); }
 
+#loading { position: absolute; top: calc(50% + 120px); left: 50%; transform: translate(-50%, -50%); z-index: 10; transition: opacity 0.5s ease; }
+.spinner { width: 40px; height: 40px; border: 3px solid rgba(255, 255, 255, 0.2); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .fade-out { opacity: 0; }
 
-/* --- Tooltip Hover --- */
-#hover-tooltip {
-    /* El translate centra el texto horizontalmente respecto a su posición proyectada */
-    transform: translate(-50%, -100%);
-}
-
-.tooltip-glow {
-    text-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(0, 150, 255, 0.6);
-}
+#hover-tooltip { transform: translate(-50%, -100%); }
+.tooltip-glow { text-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(0, 150, 255, 0.6); }
 
 /* --- Botón Volver --- */
 #back-btn {
-    position: absolute;
-    bottom: 50px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 12px 30px;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: #fff;
-    font-family: sans-serif;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-    z-index: 20;
-    backdrop-filter: blur(5px);
+    position: absolute; bottom: 40px; left: 40px; transform: none;
+    padding: 12px 35px; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 153, 0, 0.5); border-radius: 4px;
+    color: var(--orange); font-family: 'Russo One', sans-serif; letter-spacing: 2px;
+    cursor: pointer; font-size: 1rem; transition: all 0.3s ease; z-index: 60;
 }
+#back-btn:hover { background: var(--orange); color: #000; box-shadow: 0 0 20px var(--orange); }
 
-#back-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: #fff;
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-}
+/* =========================================
+   PANEL DE ROSTER (SOLUCIÓN DEFINITIVA)
+   ========================================= */
+#roster-panel {
+    /* FIXED saca al panel del flujo del documento, erradicando el bug del scrollbar fantasma */
+    position: fixed; 
+    right: 0; top: 0;
+    width: 60vw;
+    height: 100%; 
+    
+    background: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(5,7,12,0.4) 20%, rgba(5,7,12,0.6) 100%);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    
+    border: none; box-shadow: none; z-index: 40; 
+    overflow-y: auto; overflow-x: hidden;
+    padding: 60px 50px;
 
-.hidden {
+    /* Al usar fixed, podemos empujarlo 100% afuera sin romper el layout base */
+    transform: translate3d(100%, 0, 0); 
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.6s ease, visibility 0.6s;
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    transform: translate(-50%, 20px) !important;
+}
+
+.roster-active { 
+    transform: translate3d(0, 0, 0) !important; 
+    opacity: 1 !important; 
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+#roster-panel::-webkit-scrollbar { width: 5px; }
+#roster-panel::-webkit-scrollbar-track { background: transparent; }
+#roster-panel::-webkit-scrollbar-thumb { background: rgba(255, 153, 0, 0.3); border-radius: 10px; }
+
+/* GRID Y CARDS */
+.roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 25px; padding-bottom: 50px; }
+
+.char-card {
+    background: rgba(10, 12, 16, 0.5); 
+    backdrop-filter: blur(4px);
+    position: relative; transition: all 0.4s ease; 
+    border: 1px solid rgba(255,255,255,0.05); 
+    clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%);
+}
+.char-card:hover {
+    transform: translateY(-8px) scale(1.03); 
+    border-color: var(--u-color); box-shadow: 0 10px 25px rgba(0,0,0,0.8), 0 0 20px var(--u-color-dark); z-index: 5;
+}
+
+.img-container {
+    height: 240px; display: flex; align-items: flex-end; justify-content: center;
+    background: radial-gradient(circle at 50% 90%, var(--u-color-dark, #222), transparent 70%);
+    overflow: hidden; position: relative;
+}
+.char-img { max-width: 110%; max-height: 95%; z-index: 2; transition: 0.4s; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.8)); }
+.char-card:hover .char-img { transform: scale(1.15) translateY(-5px); filter: drop-shadow(0 0 15px var(--u-color)); }
+
+.info-panel { padding: 15px; background: rgba(0,0,0,0.7); border-top: 1px solid var(--u-color); }
+.u-tag { position: absolute; top: 10px; right: 10px; font-size: 0.8rem; background: var(--u-color); color: #000; font-weight: bold; padding: 4px 10px; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%, 0% 10%); }
+.char-name { font-family: 'Russo One', sans-serif; font-size: 1.3rem; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+.char-race { color: #66fcf1; font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8; }
+
+.u-theme-7 { --u-color: var(--u7); --u-color-dark: rgba(0, 210, 255, 0.4); }
+.u-theme-6 { --u-color: var(--u6); --u-color-dark: rgba(157, 80, 187, 0.4); }
+.u-theme-11 { --u-color: var(--u11); --u-color-dark: rgba(255, 8, 68, 0.4); }
+.u-theme-2 { --u-color: var(--u2); --u-color-dark: rgba(255, 133, 162, 0.4); }
+.u-theme-default { --u-color: #888; --u-color-dark: rgba(100, 100, 100, 0.4); }
+
+.hidden { opacity: 0 !important; pointer-events: none; }
+.title-active { opacity: 1 !important; transform: translateY(0); }
+
+/* --- RESPONSIVE MOBILE --- */
+@media (max-width: 768px) {
+    #left-zone { width: 100%; height: 35%; pt: 5vh; }
+    #floating-title { font-size: 3rem; }
+    #roster-panel {
+        position: fixed; /* Mantenemos consistencia con mobile */
+        width: 100%; height: 65%; top: auto; bottom: 0;
+        background: rgba(0,0,0,0.6); border-top: 1px solid rgba(255,255,255,0.1);
+        transform: translate3d(0, 100%, 0); padding: 20px;
+    }
+    .roster-active { transform: translate3d(0, 0, 0) !important; }
+    #back-btn { bottom: auto; top: 20px; left: 50%; transform: translateX(-50%); padding: 8px 20px; }
 }

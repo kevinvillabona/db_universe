@@ -10,19 +10,17 @@ export function createScene() {
     scene.background = spaceColor;
     scene.fog = new THREE.FogExp2(0x050510, 0.0025);
 
-    // --- CAMBIOS AQUÍ ---
-    // 1. FOV en 60 (Gran angular para el fondo espectacular)
-    // 2. Posición Z en 21.5 (Más cerca, para que el anillo se vea grande)
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 0, 21.5); 
+    // Lente Teleobjetivo
+    const camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 56); 
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
 
+    // El tamaño se asignará en el onResize
     const renderScene = new RenderPass(scene, camera);
     const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
     bloomPass.strength = 0.4; 
@@ -34,13 +32,27 @@ export function createScene() {
     composer.addPass(bloomPass);
 
     const onResize = () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+        // LEEMOS DEL CONTENEDOR FÍSICO, NO DEL WINDOW. Cero margen de error.
+        const container = document.getElementById('canvas-container');
+        if (!container) return;
+        
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        composer.setSize(window.innerWidth, window.innerHeight);
+        
+        renderer.setSize(width, height);
+        composer.setSize(width, height);
     };
 
     window.addEventListener('resize', onResize);
+
+    // Forzamos el tamaño en el primer frame de renderizado
+    onResize();
+    
+    // Doble chequeo por si las fuentes personalizadas retrasan el layout
+    setTimeout(onResize, 50);
 
     return { scene, camera, renderer, composer };
 }
