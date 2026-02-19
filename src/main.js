@@ -162,21 +162,6 @@ async function init() {
 
         const { rotationDelta, hoveredGroup } = interaction.update();
 
-        if (hoveredGroup && !isFocused && focusProgress < 0.1 && snakeProgress >= 1.0) {
-            tooltipEl.textContent = `Universo ${hoveredGroup.userData.id}`;
-            tooltipEl.classList.remove('opacity-0');
-            const vector = new THREE.Vector3();
-            hoveredGroup.getWorldPosition(vector);
-            vector.y += 1.8; 
-            vector.project(camera);
-            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-            const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
-            tooltipEl.style.left = `${x}px`;
-            tooltipEl.style.top = `${y}px`;
-        } else {
-            tooltipEl.classList.add('opacity-0');
-        }
-
         const targetProgress = isFocused ? 1.0 : 0.0;
         focusProgress = THREE.MathUtils.lerp(focusProgress, targetProgress, 0.04);
         currentRotationOffset = THREE.MathUtils.lerp(currentRotationOffset, targetRotationOffset, 0.04);
@@ -185,21 +170,19 @@ async function init() {
             targetRotationOffset = currentRotationOffset;
         }
 
-        // --- CÁLCULO DINÁMICO DE PROYECCIÓN 3D A 2D ---
-        // --- CÁLCULO DINÁMICO DE PROYECCIÓN 3D A 2D ---
         const isMobile = window.innerWidth < 768;
         const targetCenterZ = isMobile ? 0 : 2; 
-        
         const dist = camera.position.z - targetCenterZ;
         const vFov = THREE.MathUtils.degToRad(camera.fov);
         const visibleHeight = 2 * Math.tan(vFov / 2) * dist;
         const visibleWidth = visibleHeight * camera.aspect;
-        
-        // En desktop va a la izquierda. En mobile se queda al centro en X.
         const targetCenterX = isMobile ? 0 : -(visibleWidth * 0.3); 
-        
-        // FIX CLAVE: En mobile, subimos el universo exactamente un 25% del alto visible de la pantalla.
         const targetCenterY = isMobile ? (visibleHeight * 0.25) : 0; 
+
+        // --- VARIABLES DE LA RULETA MÓVIL ---
+        let frontUniverse = null;
+        let minDiff = Infinity;
+        const targetVisualAngle = 3 * Math.PI / 2; // El ángulo que da al frente de la cámara
 
         universeMeshes.forEach((group, index) => {
             const inner = group.children[0];
@@ -211,6 +194,18 @@ async function init() {
             }
 
             const finalAngle = group.userData.currentAngle + currentRotationOffset;
+            
+            // Calculamos qué universo está pasando justo por enfrente
+            let normalizedAngle = finalAngle % (Math.PI * 2);
+            if (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
+            let diff = Math.abs(normalizedAngle - targetVisualAngle);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            
+            if (diff < minDiff) {
+                minDiff = diff;
+                frontUniverse = group;
+            }
+
             const orbitX = radiusX * Math.cos(finalAngle);
             const orbitY = radiusY * Math.sin(finalAngle);
             
@@ -234,7 +229,6 @@ async function init() {
             snakeScaleFactor = THREE.MathUtils.clamp(snakeScaleFactor, 0, 1);
 
             if (isTarget) {
-                // FIX CLAVE 2: En mobile no lo escalamos a 2.5, lo achicamos a 1.2 para que no tape el título
                 const finalFocusScale = isMobile ? 1.2 : 2.5;
                 dynamicBaseScale = THREE.MathUtils.lerp(dynamicBaseScale, finalFocusScale, focusProgress);
             } else {
@@ -243,20 +237,24 @@ async function init() {
             }
 
             const isHovered = (hoveredGroup === group) && !isFocused && focusProgress < 0.1 && snakeProgress >= 1.0;
-            const targetScale = isHovered ? dynamicBaseScale * 1.15 : dynamicBaseScale;
+            
+            // Si es móvil, resaltamos el que está al frente automáticamente
+            const isFrontMobile = isMobile && (group === frontUniverse) && !isFocused && minDiff < 0.4;
+            const targetScale = (isHovered || isFrontMobile) ? dynamicBaseScale * 1.15 : dynamicBaseScale;
+            
             group.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
 
             let visibilityMult = snakeScaleFactor; 
             if (!isTarget) visibilityMult *= (1.0 - focusProgress);
 
             if(rim.material) {
-                const baseOpacity = isHovered ? 0.5 : 0.05;
+                const baseOpacity = (isHovered || isFrontMobile) ? 0.5 : 0.05;
                 rim.material.opacity = THREE.MathUtils.lerp(rim.material.opacity, baseOpacity * visibilityMult, 0.1);
             }
             if(outer.material) {
                  const baseOp = 0.5;
                  outer.material.opacity = THREE.MathUtils.lerp(outer.material.opacity, baseOp * visibilityMult, 0.1);
-                 const targetEm = isHovered ? 0.8 : 0.2;
+                 const targetEm = (isHovered || isFrontMobile) ? 0.8 : 0.2;
                  outer.material.emissiveIntensity = THREE.MathUtils.lerp(outer.material.emissiveIntensity, targetEm * visibilityMult, 0.1);
             }
 
@@ -265,6 +263,22 @@ async function init() {
             outer.rotation.x += 0.0005;
             outer.rotation.y += 0.0005;
         });
+        const activeUniverse = isMobile ? (minDiff < 0.6 ? frontUniverse : null) : hoveredGroup;
+
+        if (activeUniverse && !isFocused && focusProgress < 0.1 && snakeProgress >= 1.0) {
+            tooltipEl.textContent = `Universo ${activeUniverse.userData.id}`;
+            tooltipEl.classList.remove('opacity-0');
+            const vector = new THREE.Vector3();
+            activeUniverse.getWorldPosition(vector);
+            vector.y += isMobile ? 2.8 : 1.8; 
+            vector.project(camera);
+            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
+            tooltipEl.style.left = `${x}px`;
+            tooltipEl.style.top = `${y}px`;
+        } else {
+            tooltipEl.classList.add('opacity-0');
+        }
 
         composer.render();
     }
