@@ -179,10 +179,13 @@ async function init() {
         const targetCenterX = isMobile ? 0 : -(visibleWidth * 0.3); 
         const targetCenterY = isMobile ? (visibleHeight * 0.25) : 0; 
 
-        // --- VARIABLES DE LA RULETA MÓVIL ---
+        // --- SOLUCIÓN: ESCALA GLOBAL DEL ANILLO MÓVIL ---
+        // Reducimos el tamaño de la órbita y las esferas al 55% solo en celulares
+        const ringScale = isMobile ? 0.55 : 1.0;
+
         let frontUniverse = null;
         let minDiff = Infinity;
-        const targetVisualAngle = 3 * Math.PI / 2; // El ángulo que da al frente de la cámara
+        const targetVisualAngle = 3 * Math.PI / 2;
 
         universeMeshes.forEach((group, index) => {
             const inner = group.children[0];
@@ -195,7 +198,6 @@ async function init() {
 
             const finalAngle = group.userData.currentAngle + currentRotationOffset;
             
-            // Calculamos qué universo está pasando justo por enfrente
             let normalizedAngle = finalAngle % (Math.PI * 2);
             if (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
             let diff = Math.abs(normalizedAngle - targetVisualAngle);
@@ -206,8 +208,9 @@ async function init() {
                 frontUniverse = group;
             }
 
-            const orbitX = radiusX * Math.cos(finalAngle);
-            const orbitY = radiusY * Math.sin(finalAngle);
+            // 1. Achicamos el radio de la órbita aplicando el ringScale
+            const orbitX = radiusX * ringScale * Math.cos(finalAngle);
+            const orbitY = radiusY * ringScale * Math.sin(finalAngle);
             
             const isTarget = (index === focusedIndex);
 
@@ -221,8 +224,10 @@ async function init() {
                 group.position.z = 0;
             }
 
-            const yNorm = orbitY / radiusY; 
-            let dynamicBaseScale = 1.0 - (yNorm * 0.25);
+            // 2. Achicamos el tamaño base de cada esfera de universo 
+            const yNorm = orbitY / (radiusY * ringScale); 
+            let dynamicBaseScale = (1.0 - (yNorm * 0.25)) * ringScale;
+            
             const totalItems = universeMeshes.length;
             const itemDelay = (index / totalItems) * 0.75; 
             let snakeScaleFactor = (snakeProgress - itemDelay) * 5.0;
@@ -237,8 +242,6 @@ async function init() {
             }
 
             const isHovered = (hoveredGroup === group) && !isFocused && focusProgress < 0.1 && snakeProgress >= 1.0;
-            
-            // Si es móvil, resaltamos el que está al frente automáticamente
             const isFrontMobile = isMobile && (group === frontUniverse) && !isFocused && minDiff < 0.4;
             const targetScale = (isHovered || isFrontMobile) ? dynamicBaseScale * 1.15 : dynamicBaseScale;
             
@@ -263,6 +266,7 @@ async function init() {
             outer.rotation.x += 0.0005;
             outer.rotation.y += 0.0005;
         });
+
         const activeUniverse = isMobile ? (minDiff < 0.6 ? frontUniverse : null) : hoveredGroup;
 
         if (activeUniverse && !isFocused && focusProgress < 0.1 && snakeProgress >= 1.0) {
@@ -270,7 +274,9 @@ async function init() {
             tooltipEl.classList.remove('opacity-0');
             const vector = new THREE.Vector3();
             activeUniverse.getWorldPosition(vector);
-            vector.y += isMobile ? 2.8 : 1.8; 
+            
+            // 3. Ajustamos el desplazamiento Y del tooltip para que quede bien sobre la esfera más pequeña
+            vector.y += isMobile ? 1.5 : 1.8; 
             vector.project(camera);
             const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
             const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
