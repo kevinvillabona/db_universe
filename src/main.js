@@ -186,19 +186,20 @@ async function init() {
         }
 
         // --- CÁLCULO DINÁMICO DE PROYECCIÓN 3D A 2D ---
+        // --- CÁLCULO DINÁMICO DE PROYECCIÓN 3D A 2D ---
         const isMobile = window.innerWidth < 768;
         const targetCenterZ = isMobile ? 0 : 2; 
         
-        // Calculamos el ancho visible en la coordenada Z destino
         const dist = camera.position.z - targetCenterZ;
         const vFov = THREE.MathUtils.degToRad(camera.fov);
         const visibleHeight = 2 * Math.tan(vFov / 2) * dist;
         const visibleWidth = visibleHeight * camera.aspect;
         
-        // El centro de un div de 40vw está exactamente en el 30% a la izquierda del centro visual (-0.3)
-        // Esto garantiza centrado milimétrico bajo el título sin importar la resolución.
+        // En desktop va a la izquierda. En mobile se queda al centro en X.
         const targetCenterX = isMobile ? 0 : -(visibleWidth * 0.3); 
-        const targetCenterY = isMobile ? 3 : 0; 
+        
+        // FIX CLAVE: En mobile, subimos el universo exactamente un 25% del alto visible de la pantalla.
+        const targetCenterY = isMobile ? (visibleHeight * 0.25) : 0; 
 
         universeMeshes.forEach((group, index) => {
             const inner = group.children[0];
@@ -233,7 +234,9 @@ async function init() {
             snakeScaleFactor = THREE.MathUtils.clamp(snakeScaleFactor, 0, 1);
 
             if (isTarget) {
-                dynamicBaseScale = THREE.MathUtils.lerp(dynamicBaseScale, 2.5, focusProgress);
+                // FIX CLAVE 2: En mobile no lo escalamos a 2.5, lo achicamos a 1.2 para que no tape el título
+                const finalFocusScale = isMobile ? 1.2 : 2.5;
+                dynamicBaseScale = THREE.MathUtils.lerp(dynamicBaseScale, finalFocusScale, focusProgress);
             } else {
                 let targetScaleNoFocus = dynamicBaseScale * snakeScaleFactor;
                 dynamicBaseScale = THREE.MathUtils.lerp(targetScaleNoFocus, 0, focusProgress);
